@@ -1,5 +1,5 @@
 
-# Parent UID
+# Get Parent References - Proof Of Concept
 
 This is a Node.js application that retrieves the parent references of a given entry in Contentstack.
 
