@@ -3,28 +3,34 @@ const app = express();
 const port = 3000;
 require('dotenv').config();
 
-// Define your API key and token
 const apiKey = process.env.API_KEY;
 const authToken = process.env.MANAGEMENT_TOKEN;
 
-// Set up the headers
 const headers = new Headers();
 headers.append('Content-Type', 'application/json');
-headers.append('api_key', apiKey); // Assuming the API expects the key as 'api_key'
+headers.append('api_key', apiKey); 
 headers.append('Authorization', authToken);
 
-// Define the endpoint with a route handler
-app.get('/references', async (req, res) => {
+ app.get('/references', async (req, res) => {
     let parentReferences = await getParentReferences(req.query.entry_uid, req.query.content_type_uid);
     res.json( parentReferences);
 });
 
-// Start the server
 app.listen(port, () => {
     console.log(`Middleware running @ http://localhost:${port}`);
 });
 
 
+/**
+ * Retrieves the parent references of a given entry in Contentstack.
+ *
+ * @param {string} entryUid - The UID of the entry.
+ * @param {string} contentTypeUid - The UID of the content type.
+ * @param {number} [height=0] - The depth of the current reference.
+ * @param {boolean} [isRootCall=true] - Indicates if this is the root call.
+ * @param {Set} [visited=new Set()] - Set of visited entry UIDs to avoid infinite recursion.
+ * @returns {Promise<Array>} - A promise that resolves to an array of parent references.
+ */
 async function getParentReferences(entryUid, contentTypeUid, height = 0, isRootCall = true, visited = new Set()) {
     if (visited.has(entryUid)) {
         // Already visited this entry; return to avoid infinite recursion
@@ -64,6 +70,12 @@ async function getParentReferences(entryUid, contentTypeUid, height = 0, isRootC
 }
 
 
+/**
+ * Filters an array of references to remove duplicates based on entry_uid and returns the unique references with the lowest height.
+ *
+ * @param {Array} references - The array of references to filter.
+ * @returns {Array} - The array of unique references with the lowest height.
+ */
 async function filterDuplicatesByDepth(references) {
     const uniqueRefs = Array.from(new Set(references.map((ref) => ref.entry_uid)))
         .map(entry_uid => {
