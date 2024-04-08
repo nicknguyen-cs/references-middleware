@@ -42,12 +42,12 @@ async function getParentReferences(entryUid, contentTypeUid, height = 0, isRootC
     try {
         const response = await fetch(`https://api.contentstack.io/v3/content_types/${contentTypeUid}/entries/${entryUid}/references`, {
             method: 'GET',
-            headers: headers // Ensure 'headers' is defined elsewhere in your code
+            headers: headers 
         });
         data = await response.json();
     } catch (error) {
         console.error('Error:', error);
-        return []; // Return an empty array or appropriate error handling
+        return []; 
     }
 
     const references = data.references || [];
