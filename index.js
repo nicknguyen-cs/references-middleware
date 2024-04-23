@@ -8,13 +8,38 @@ const authToken = process.env.MANAGEMENT_TOKEN;
 
 const headers = new Headers();
 headers.append('Content-Type', 'application/json');
-headers.append('api_key', apiKey); 
-headers.append('Authorization', authToken);
+headers.append('api_key', apiKey);
+headers.append('authorization', authToken);
 
- app.get('/references', async (req, res) => {
+app.get('/references', async (req, res) => {
     let parentReferences = await getParentReferences(req.query.entry_uid, req.query.content_type_uid);
-    res.json( parentReferences);
+    res.send(parentReferences);
 });
+
+app.get('/asset-references', async (req, res) => {
+    let assetUid = req.query.asset_uid;
+    let listofrefs = [];
+    try {
+        fetch(`https://api.contentstack.io/v3/assets/${assetUid}/references`, {
+            method: 'GET',
+            headers: headers
+        })
+        .then(response => response.json())
+        .then(async data => {
+            listofrefs = data.references; // Initial Refs
+            for (let reference of data.references) { // Loop through each reference
+                let refs = await getParentReferences(reference.entry_uid, reference.content_type_uid)
+                listofrefs = [...listofrefs, ...refs]; // Concatenate the new refs
+            }
+            filterDuplicatesByDepth(listofrefs); // Filter duplicats of all references
+            listofrefs.sort((a, b) => a.height - b.height);  // Re-sort new list
+            return listofrefs;
+        })
+        .then(data => { res.send(data) });
+     } catch (e) {
+        res.send(500);
+    }
+})
 
 app.listen(port, () => {
     console.log(`Middleware running @ http://localhost:${port}`);
@@ -37,17 +62,18 @@ async function getParentReferences(entryUid, contentTypeUid, height = 0, isRootC
         return [];
     }
     visited.add(entryUid);
-    
+
     let data;
     try {
+        console.log(`https://api.contentstack.io/v3/content_types/${contentTypeUid}/entries/${entryUid}/references`);
         const response = await fetch(`https://api.contentstack.io/v3/content_types/${contentTypeUid}/entries/${entryUid}/references`, {
             method: 'GET',
-            headers: headers 
+            headers: headers
         });
         data = await response.json();
     } catch (error) {
         console.error('Error:', error);
-        return []; 
+        return [];
     }
 
     const references = data.references || [];
@@ -64,7 +90,7 @@ async function getParentReferences(entryUid, contentTypeUid, height = 0, isRootC
 
     // If this is the root call (i.e., the initial call), filter duplicates. Otherwise, just return all references.
     if (isRootCall) {
-        allRefs = await filterDuplicatesByDepth(allRefs);
+        allRefs = filterDuplicatesByDepth(allRefs);
     }
     return allRefs;
 }
@@ -77,11 +103,9 @@ async function getParentReferences(entryUid, contentTypeUid, height = 0, isRootC
  * @returns {Array} - The array of unique references with the lowest height.
  */
 async function filterDuplicatesByDepth(references) {
-    const uniqueRefs = Array.from(new Set(references.map((ref) => ref.entry_uid)))
+    return Array.from(new Set(references.map((ref) => ref.entry_uid)))
         .map(entry_uid => {
             const duplicates = references.filter(ref => ref.entry_uid === entry_uid);
             return duplicates.sort((a, b) => a.height - b.height)[0];
         });
-
-    return uniqueRefs;
 }
